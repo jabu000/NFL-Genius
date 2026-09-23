@@ -47,6 +47,28 @@ Daily full-slate refreshes need a paid plan. Otherwise set `ODDS_MAX_AGE_HOURS=7
 
 ## Run it automatically every day
 
+### Option A: GitHub Actions (recommended)
+
+`.github/workflows/daily-research.yml` runs `npm run research` every day at 13:00 UTC (9 AM Eastern in summer, 8 AM in winter).
+
+- Each run restores the database from the **`data`** branch, researches, and pushes the database back as a single commit that replaces the previous one. History doesn't grow, and the 10-day write-up history and the odds cache carry over between runs.
+- Dates follow US Eastern time.
+
+Setup:
+
+1. Add any keys you have as repository secrets (**Settings → Secrets and variables → Actions → New repository secret**): `ODDS_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY`. All are optional.
+2. The workflow only runs from the default branch, so merge it to `main`.
+3. Optionally start the first run now: **Actions → Daily research → Run workflow**.
+4. On your computer, stop `npm run dev`, then run:
+   ```bash
+   npm run pull-data   # downloads the latest database from the data branch
+   npm run dev
+   ```
+
+If a run fails (for example, no data could be fetched), the `data` branch keeps the previous day's research, and GitHub emails you about the failed run.
+
+### Option B: cron on your own machine
+
 macOS/Linux (`crontab -e`), 9am daily:
 
 ```
@@ -62,6 +84,7 @@ Windows: Task Scheduler → Create Basic Task → Daily → Program `cmd`, argum
 | `npm run dev` | Start the site locally |
 | `npm run research` | Daily research pipeline (live data) |
 | `npm run seed:mock` | Replace the DB with 10 days of demo data |
+| `npm run pull-data` | Download the database published by the daily GitHub Action |
 | `npm test` | Unit tests (Vitest) |
 | `npm run lint` / `npm run typecheck` | ESLint / TypeScript |
 

@@ -20,6 +20,14 @@ export function getDb(file = dbPath()): Database.Database {
   return db;
 }
 
+/** Fold the write-ahead log into the main file and close, so the .db file alone is complete (e.g. to copy it). */
+export function closeDb(): void {
+  if (!db) return;
+  db.pragma("wal_checkpoint(TRUNCATE)");
+  db.close();
+  db = null;
+}
+
 /** Delete dated research older than the retention window (today counts as day 1). */
 export function pruneOld(database: Database.Database, today: string, retentionDays: number): number {
   const cutoff = retentionCutoff(today, retentionDays);

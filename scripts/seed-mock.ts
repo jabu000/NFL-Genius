@@ -5,7 +5,7 @@
  *   npm run seed:mock
  */
 import fs from "node:fs";
-import { dbPath, getDb } from "../src/lib/db";
+import { closeDb, dbPath, getDb } from "../src/lib/db";
 import { addDays, isoDate, seasonFor } from "../src/lib/dates";
 import { templateProvider } from "../src/lib/llm/template";
 import { runResearch } from "../src/lib/pipeline";
@@ -23,6 +23,7 @@ async function main() {
     const res = await runResearch(db, generateMockInputs(date, season), date, { provider: templateProvider, source: "mock" });
     console.log(`${date}: ${res.players} players, ${res.bets} props`);
   }
+  closeDb();
   console.log(`Mock data written to ${file}`);
 }
 

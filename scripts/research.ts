@@ -5,7 +5,7 @@
  *   npm run research
  */
 import "dotenv/config";
-import { getDb } from "../src/lib/db";
+import { closeDb, getDb } from "../src/lib/db";
 import { isoDate, seasonFor } from "../src/lib/dates";
 import { getProvider } from "../src/lib/llm";
 import { runResearch } from "../src/lib/pipeline";
@@ -32,6 +32,7 @@ async function main() {
     log: console.log,
   });
   console.log(`Done: ${res.players} players projected, ${res.bets} props compared.`);
+  closeDb();
 }
 
 main().catch((err) => {
