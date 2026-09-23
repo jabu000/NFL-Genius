@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "research": "tsx scripts/research.ts",
-    "seed:mock": "tsx scripts/seed-mock.ts"
+    "seed:mock": "tsx scripts/seed-mock.ts",
+    "pull-data": "tsx scripts/pull-data.ts"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",

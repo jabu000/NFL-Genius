@@ -12,6 +12,10 @@ User decisions:
 - Use The Odds API for DraftKings lines.
 
 ## 2. Current State
+- **Daily GitHub Action added** (`.github/workflows/daily-research.yml`). It runs at 13:00 UTC and on manual dispatch. It restores the DB from the `data` branch, runs `npm run research`, and force-pushes the DB back. `npm run pull-data` downloads it locally.
+  - The restore/publish steps and `pull-data` were tested with a local bare-repo simulation, including a second run and a stale `-wal` file.
+  - The workflow has **not yet run on GitHub**: it only runs from `main`, and it needs the optional secrets `ODDS_API_KEY` / `GEMINI_API_KEY` / `GROQ_API_KEY`.
+- PR #1 (the first full version) is merged into `main`.
 - The first full version is built. Build, lint, typecheck and all 24 unit tests pass.
 - `npm run seed:mock` produces 10 days × 224 players of demo data. The UI was verified with Playwright screenshots (desktop, dark mode, mobile) for the player grid, the player page with the 10-day carousel and value-bet callout, and the Confidence Board.
 - `npm run research` was verified against **real 2026 data** from nflverse (stats, schedule, spreads/totals, projected QBs). It produced 224 real starters with matchup-aware write-ups.
@@ -26,7 +30,8 @@ User decisions:
 - `src/lib/db/{schema.sql,index.ts,queries.ts}`: storage and page queries
 - `src/lib/config.ts`: every tunable (thresholds, retention, priors, markets)
 - `src/app/*`, `src/components/*`: UI
-- `scripts/research.ts`, `scripts/seed-mock.ts`
+- `scripts/research.ts`, `scripts/seed-mock.ts`, `scripts/pull-data.ts`
+- `.github/workflows/daily-research.yml`: daily research, with the DB published to the `data` branch
 - `tests/*.test.ts`
 
 ## 4. Changes Made
@@ -42,6 +47,10 @@ User decisions:
 - Added Odds API credit budgeting: a cache age limit, a 7-day window, a credit reserve, and cached lines stored in `prop_lines`.
 - The first live run wipes demo data automatically.
 - Wrote README, CLAUDE.md and this handoff.
+- Session 2:
+  - Added the daily GitHub Action and `npm run pull-data`.
+  - Added `closeDb()`, which checkpoints the WAL before scripts exit so the `.db` file is complete on its own.
+  - Documented setup in the README.
 
 ## 5. Failed Attempts
 - ESPN endpoints (`site.api.espn.com`) returned 403 through the sandbox proxy, so the parsers could not be tested live. This led to adding the nflverse schedule fallback, which works.
@@ -49,6 +58,9 @@ User decisions:
 - Template write-ups lowercased team codes ("pIT allows…"). Fixed so acronyms are left alone.
 
 ## 6. Next Steps
+0. Merge the workflow to `main` and add the repository secrets. Then trigger **Actions → Daily research → Run workflow** once, and confirm that:
+   - the `data` branch appears;
+   - the run log shows ESPN teams and depth players (the GitHub runners should reach ESPN, unlike the sandbox).
 1. Run `npm run research` on a machine with open internet and confirm that the ESPN depth charts and injuries parse. Check the log counts: teams, depth players, injury designations. Adjust `toPosition()` and the key names in `sources/espn.ts` if the shape differs.
 2. Add `ODDS_API_KEY` and confirm DraftKings props match players. Check the log line "N DraftKings props matched". Name mismatches go through `normName()`.
 3. Add `GEMINI_API_KEY` (or `GROQ_API_KEY`) and review LLM write-up quality. Tune `SYSTEM_PROMPT` in `src/lib/llm/prompt.ts`.
@@ -57,4 +69,4 @@ User decisions:
    - Per-player projection-vs-actual history chart.
    - Weather (wind) for passing stats.
    - Snap-count data from nflverse for role stability.
-   - Deploy: move the pipeline to GitHub Actions and the DB to hosted Postgres or Turso.
+   - Deploy the site itself (e.g. Vercel). That would need the DB moved from the `data` branch to hosted Postgres or Turso.

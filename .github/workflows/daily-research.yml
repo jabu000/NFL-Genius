@@ -1,0 +1,74 @@
+# Runs the research pipeline every morning and publishes the SQLite database to
+# the `data` branch (one commit, force-pushed, so history never grows).
+# Get it locally with `npm run pull-data`.
+#
+# Optional repository secrets: ODDS_API_KEY, GEMINI_API_KEY, GROQ_API_KEY.
+name: Daily research
+
+on:
+  schedule:
+    # 13:00 UTC = 9:00 AM Eastern during daylight time (8:00 AM in winter).
+    # GitHub may start scheduled runs a few minutes late.
+    - cron: "0 13 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-research
+  cancel-in-progress: false
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Research dates and the 10-day window follow US Eastern time.
+      TZ: America/New_York
+      DATA_BRANCH: data
+      ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Restore database from the data branch
+        run: |
+          mkdir -p data
+          if git fetch --depth=1 origin "$DATA_BRANCH"; then
+            git show "origin/$DATA_BRANCH:nfl-genius.db" > data/nfl-genius.db
+            echo "Restored $(du -h data/nfl-genius.db | cut -f1) database"
+          else
+            echo "No $DATA_BRANCH branch yet; starting a fresh database"
+          fi
+
+      - name: Run research
+        run: npm run research
+
+      - name: Publish database to the data branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          publish=$(mktemp -d)
+          cp data/nfl-genius.db "$publish/"
+          cat > "$publish/README.md" <<EOF
+          # NFL Genius data
+
+          Database written by the Daily research workflow on $(date '+%Y-%m-%d %H:%M %Z').
+          This branch is force-pushed on every run. Use \`npm run pull-data\` on main to download it.
+          EOF
+          cd "$publish"
+          git init -q -b "$DATA_BRANCH"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Research data for $(date +%F)"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:$DATA_BRANCH"

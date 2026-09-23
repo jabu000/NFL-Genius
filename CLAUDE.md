@@ -13,6 +13,7 @@ NFL Genius is a local Next.js site plus a daily research pipeline. It projects e
 - `npm run dev`: site at http://localhost:3000
 - `npm run research`: daily pipeline (live sources)
 - `npm run seed:mock`: wipe the DB and load 10 days of demo data (no keys needed)
+- `npm run pull-data`: download the DB that the daily GitHub Action publishes to the `data` branch
 - `npm test`, `npm run lint`, `npm run typecheck`, `npm run build`
 
 ## Stack
@@ -24,6 +25,8 @@ NFL Genius is a local Next.js site plus a daily research pipeline. It projects e
 ```
 scripts/research.ts       live run: gatherLiveInputs → runResearch
 scripts/seed-mock.ts      10× runResearch with generateMockInputs
+scripts/pull-data.ts      fetch origin/data:nfl-genius.db into data/ (removes stale -wal/-shm first)
+.github/workflows/daily-research.yml   daily 13:00 UTC: restore DB from `data` branch → research → force-push DB to `data`
 src/lib/pipeline.ts       runResearch(): starters → project → compare to lines → write-ups → save → prune
 src/lib/sources/          espn.ts, nflverse.ts (stats + schedule), oddsApi.ts, live.ts (orchestration + odds credit budget), mock.ts, http.ts
 src/lib/model/            project.ts (baseline + matchup adjustments), confidence.ts, edge.ts (odds math), depth.ts (starter selection)
@@ -45,7 +48,8 @@ Every source produces a `ResearchInputs` object (`src/lib/types.ts`), so live an
 - **Name matching.** Names are matched across sources with `normName()`, and player ids are `playerId(name, position)`.
 - **Degrade, don't crash.** Each source call is wrapped in `attempt()`. The run aborts only when there is no roster or stats data at all, and then leaves existing research untouched.
 - **Write-ups.** The LLM must use only the provided facts. A failed batch falls back to templates, and three failures in a row switch the rest of the run to templates.
-- **Secrets.** Never commit keys. `.env` is gitignored, and `.env.example` documents every variable.
+- **Daily automation.** The GitHub Action keeps the DB on the orphan `data` branch as a single commit that is force-pushed every run; never merge that branch. It runs with `TZ=America/New_York`, so research dates are Eastern. Scripts that copy or publish the DB must call `closeDb()`, which checkpoints the WAL; otherwise the `.db` file can be missing recent writes.
+- **Secrets.** Never commit keys. In CI, keys come from repository secrets. `.env` is gitignored, and `.env.example` documents every variable.
 
 ## Env vars
 `ODDS_API_KEY`, `ODDS_MAX_AGE_HOURS`, `ODDS_MARKETS`, `ODDS_CREDIT_RESERVE`, `LLM_PROVIDER` (gemini|groq|template), `GEMINI_API_KEY`, `GEMINI_MODEL`, `GROQ_API_KEY`, `GROQ_MODEL`, `LLM_DELAY_MS`, `NFL_SEASON`, `RESEARCH_DATE`, `NFL_GENIUS_DB`.
